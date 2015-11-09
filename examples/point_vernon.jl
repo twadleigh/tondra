@@ -2,11 +2,12 @@ push!(LOAD_PATH, pwd() * "/../src")
 
 using LAS
 using SurfaceFitting
+using PLY
 
-# fetch the Autzen Stadium laz file, if not found
+# fetch the laz file, if not found
 laz = "point_vernon.laz"
 ply = "point_vernon.ply"
-url = "https://roames-hpc-home.s3.amazonaws.com/users/chrisfoster/pub/point_vernon.laz"
+url = "<redacted>"
 ctr = [482520.0; 7207550.0; 9.0]
 rad = 5.0
 if !isfile(laz)
@@ -42,17 +43,5 @@ println("done.")
 # generate the faces
 fcs = triangulate_pointcloud(pts)
 
-# write PLY
-open(ply, "w") do fid
-  write(fid, "ply\n")
-  write(fid, "format binary_little_endian 1.0\n")
-  @printf(fid, "element vertex %u\n", npts)
-  write(fid, "property float x\nproperty float y\nproperty float z\n")
-  @printf(fid, "element face %u\n", length(fcs))
-  write(fid, "property list uchar int vertex_index\nend_header\n")
-  write(fid, pts)
-  for face in fcs
-    write(fid, UInt8(3))
-    write(fid, map(Cint, collect(face)))
-  end
-end
+# output results
+write_ply(ply, pts, fcs)

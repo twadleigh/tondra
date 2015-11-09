@@ -32,6 +32,20 @@ function update_labeling(ne, nv, es, ρ, σ, ϕₒ, ϕ, λ, b, d)
 end
 
 """
+Calcuates the binary labeling ϕᵢ∈[-1,1] of graph vertices which minimizes:
+
+  Σᵢ σᵢϕᵢ + Σᵢⱼ ρᵢⱼ |ϕᵢ-ϕⱼ|
+
+where i ranges over vertices and ij ranges over edges.
+
+The algorithm is a version of the split Bregman method, which has been shown
+to be both relatively simple to implement and parallelize, and exhibits fast
+convergence on L1-minimization problems (which generally converge very slowly
+using standard minimization techniques).
+
+See, e.g., http://epubs.siam.org/doi/abs/10.1137/080725891
+
+Inputs:
 es - edges
 ρ  - edge weight (ρ ≧ 0)
 σ  - vertex label bias (σ < 0 → filled, σ > 0 → empty)
