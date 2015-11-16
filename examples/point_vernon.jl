@@ -1,4 +1,5 @@
 push!(LOAD_PATH, pwd() * "/../src")
+DL_LOAD_PATH = [pwd() * "/../src"]
 
 using LAS
 using SurfaceFitting
@@ -9,7 +10,7 @@ laz = "point_vernon.laz"
 ply = "point_vernon.ply"
 url = "<redacted>"
 ctr = [482520.0; 7207550.0; 9.0]
-rad = 5.0
+rad = 20.0
 if !isfile(laz)
   using Requests
   save(get(url), laz)

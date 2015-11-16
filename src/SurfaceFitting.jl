@@ -37,11 +37,8 @@ function triangulate_pointcloud(pts)
 
   print("Calculating binary labeling...")
   # 5. calculate vertex labeling
-  λ = 0.1
-  ϕ = binary_labeling(es, ρ, σ, λ)
+  ϕ = binary_labeling(es, ρ, σ)
   println("done.")
-
-  println(ϕ)
 
   # 6. extract isosurface
   isosurface(es, pts, simps, ϕ)
@@ -99,7 +96,7 @@ function face_weights(pts, simps, es)
       wt = (b^2*c)/sqrt(b^2+c^2-a^2)
     end
 
-    ρ[k] = wt
+    ρ[k] = min(wt^2.0, 1.0e30)
   end
 
   ρ
