@@ -2,37 +2,18 @@ module BinaryLabeling
 
 export binary_labeling
 
-clip(v, lo, hi) = v < lo ? lo : (v > hi ? hi : v)
-shrink(v, c) = v - clip(v, -c, c)
+const update_labeling_lib = Base.source_dir() * "/update_labeling.so"
+const update_labeling_fn = :update_labeling_v2
 
-# basic step of the iteration
-function update_labeling(ne, nv, es, ρ, σ, ϕₒ, ϕ, λ, b, d)
-
-  # update d (in place)
-  for k in 1:ne
-    d[k] = shrink(ϕ[es[2,k]] - ϕ[es[1,k]] + b[k], ρ[k]/λ)
-  end
-
-  # update ϕ
-  for k in 1:nv
-    ϕ[k] = -σ[k]/λ
-  end
-  for k in 1:ne
-    ϕ[es[1,k]] += ϕₒ[es[2,k]] + d[k] - b[k]
-    ϕ[es[2,k]] += ϕₒ[es[1,k]] + d[k] - b[k]
-  end
-  for k in 1:nv
-    ϕ[k] = clip(ϕ[k], -1.0, 1.0)
-  end
-
-  # update b (in place)
-  for k in 1:ne
-    b[k] += ϕ[es[2,k]] - ϕ[es[1,k]] - d[k]
-  end
+function update_labeling(ne, nv, es, w, ρ, σ, λ, ϕₒ, ϕ, b, d)
+  ccall((update_labeling_fn, update_labeling_lib),
+    Void, (Int32, Int32, Ptr{Int32}, Ptr{Float32}, Ptr{Float32}, Ptr{Float32},
+    Float32, Ptr{Float32}, Ptr{Float32}, Ptr{Float32}, Ptr{Float32}),
+      ne, nv, es, w, ρ, σ, λ, ϕₒ, ϕ, b, d)
 end
 
 """
-Calcuates the binary labeling ϕᵢ∈[-1,1] of graph vertices which minimizes:
+Calcuates the binary labeling ϕᵢ ∈ {-1,1} of graph vertices which minimizes:
 
   Σᵢ σᵢϕᵢ + Σᵢⱼ ρᵢⱼ |ϕᵢ-ϕⱼ|
 
@@ -46,10 +27,10 @@ using standard minimization techniques).
 See, e.g., http://epubs.siam.org/doi/abs/10.1137/080725891
 
 Inputs:
-es - edges
-ρ  - edge weight (ρ ≧ 0)
-σ  - vertex label bias (σ < 0 → filled, σ > 0 → empty)
-λ  - a regularlization parameter (λ > 0)
+  es - edges
+  ρ  - edge weight (ρ ≧ 0)
+  σ  - vertex label bias (σ < 0 → filled, σ > 0 → empty)
+  λ  - a regularlization parameter (λ > 0)
 """
 function binary_labeling(es, ρ, σ, λ)
 
@@ -61,22 +42,44 @@ function binary_labeling(es, ρ, σ, λ)
   d = zeros(ρ)
   b = zeros(ρ)
 
-  ϕₒ = zeros(nv)
-  ϕ = zeros(nv)
+  ϕₒ = zeros(σ)
+  ϕ = zeros(σ)
+
+  # calculate reweighting (inverse valence)
+  if update_labeling_fn == :update_labeling_v1
+    w = zeros(σ)
+    for k in 1:ne
+      w[es[1,k]] += ρ[k]
+      w[es[2,k]] += ρ[k]
+    end
+    for k in 1:nv
+      w[k] = 1.0 / w[k]
+    end
+  else
+    w = zeros(σ)
+    for k in 1:ne
+      w[es[1,k]] += 1.0
+      w[es[2,k]] += 1.0
+    end
+    for k in 1:nv
+      w[k] = 1.0 / w[k]
+    end
+  end
+
+  # calculate edge indices appropriate for C
+  es2 = es - 1
 
   # do at least this many iterations
   for k in 1:3
-    update_labeling(ne, nv, es, ρ, σ, ϕ, ϕₒ, λ, b, d)
-    update_labeling(ne, nv, es, ρ, σ, ϕₒ, ϕ, λ, b, d)
+    update_labeling(ne, nv, es2, w, ρ, σ, λ, ϕ, ϕₒ, b, d)
+    update_labeling(ne, nv, es2, w, ρ, σ, λ, ϕₒ, ϕ, b, d)
   end
 
   # then do iterations until there is no change
-  while norm(ϕ-ϕₒ) > 1.0e-8*sqrt(nv)
-    @printf("Change: %f.\n", norm(ϕ-ϕₒ)/sqrt(nv))
-    update_labeling(ne, nv, es, ρ, σ, ϕ, ϕₒ, λ, b, d)
-    update_labeling(ne, nv, es, ρ, σ, ϕₒ, ϕ, λ, b, d)
+  while norm(ϕ-ϕₒ) > 1.0e-4*sqrt(nv)
+    update_labeling(ne, nv, es2, w, ρ, σ, λ, ϕ, ϕₒ, b, d)
+    update_labeling(ne, nv, es2, w, ρ, σ, λ, ϕₒ, ϕ, b, d)
   end
-  @printf("Change: %f.\n", norm(ϕ-ϕₒ)/sqrt(nv))
 
   ϕ
 end

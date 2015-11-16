@@ -44,14 +44,14 @@ function triangulate_pointcloud(pts)
   println(ϕ)
 
   # 6. extract isosurface
-  isosurface(es, simps, ϕ)
+  isosurface(es, pts, simps, ϕ)
 end
 
 function delaunay_edges(simps)
   nsimps = length(simps)
 
-  half_edges = Dict{IntSet, Int}()
-  edges = Vector{Int}()
+  half_edges = Dict{IntSet, Int32}()
+  edges = Vector{Int32}()
   for k in 1:nsimps
     simp = simps[k]
     for v in simp
@@ -77,7 +77,7 @@ end
 # and which has one side coincident with the longest side (c).
 function face_weights(pts, simps, es)
   ne = size(es)[2]
-  ρ = Vector{Float64}(ne)
+  ρ = Vector{Float32}(ne)
 
   for k in 1:ne
     face = collect(simps[es[1,k]] ∩ simps[es[2,k]])
@@ -110,7 +110,7 @@ end
 # the label bias is Inf, forcing it to be labeled with -1: empty.
 function boundary_bias(simps, npts)
   nv = length(simps)
-  σ = zeros(nv)
+  σ = zeros(Float32, nv)
   lo = npts - 1
   hi = npts
 
@@ -122,15 +122,29 @@ function boundary_bias(simps, npts)
   σ
 end
 
-function isosurface(es, simps, ϕ)
+function isosurface(es, pts, simps, ϕ)
   ne = size(es)[2]
 
-  surf = Vector{IntSet}()
+  surf = Set{Vector{Int}}()
   for k in 1:ne
     v1 = es[1,k]
     v2 = es[2,k]
     if ϕ[v1] * ϕ[v2] < 0
-      push!(surf, simps[v1] ∩ simps[v2])
+      face_set = simps[v1] ∩ simps[v2]
+      outside_simplex = ϕ[v1] < 0 ? simps[v1] : simps[v2]
+      outside_vertex = collect(setdiff(outside_simplex, face_set))[1]
+      face = collect(face_set)
+
+      # check the face orientation
+      origin = pts[:, face[1]]
+      v1 = pts[:, face[2]] - origin
+      v2 = pts[:, face[3]] - origin
+      v3 = pts[:, outside_vertex] - origin
+      if (v3' * (v1 × v2))[1] < 0
+        reverse!(face)
+      end
+
+      push!(surf, face)
     end
   end
 
