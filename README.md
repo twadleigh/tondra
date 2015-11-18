@@ -11,7 +11,7 @@ Fit a triangulated surface to a point cloud by extracting a subset of faces of i
 
 Run the `Makefile` in the `src` directory to build the shared library.
 
-# Running
+## Running
 
 To create a `.ply` from a `.laz` file:
 
@@ -20,3 +20,10 @@ To create a `.ply` from a `.laz` file:
 ```
 > ./laz_to_ply.jl autzen
 ```
+
+## Credits
+
+This project makes use of:
+ - [qhull](http://www.qhull.org/)
+ - [libLAS](http://www.liblas.org/)
+ - [maxflow](http://pub.ist.ac.at/~vnk/software/maxflow-v3.04.src.zip)
