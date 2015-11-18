@@ -13,7 +13,7 @@ function write_ply(fn, pts, fcs)
     write(fid, map(Float32, pts))
     for face in fcs
       write(fid, UInt8(length(face)))
-      write(fid, map(Cint, collect(face) - 1))
+      write(fid, map(Cint, face - 1))
     end
   end
 

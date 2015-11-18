@@ -1,9 +1,53 @@
 module SurfaceFitting
 
-export triangulate_pointcloud
+export triangulate_pointcloud, triangulate_pointcloud_in_box
 
 using QHull
 using BinaryLabeling
+
+function triangulate_pointcloud_in_box(pts, xlo, xhi, ylo, yhi)
+
+  fcs = Vector{Vector{Int}}()
+
+  # calculate point subset for this chunk
+  npts = size(pts)[2]
+  nsubpts = 0
+  for n in 1:npts
+    x = pts[1,n]
+    y = pts[2,n]
+    if x >= xlo && x <= xhi && y >= ylo && y <= yhi
+      nsubpts += 1
+    end
+  end
+
+  # bail if there aren't really any points in this chunk
+  if nsubpts < 3
+    return fcs
+  end
+
+  subpts_ix = zeros(Int, nsubpts)
+  subpts = zeros(3, nsubpts)
+  ix = 1
+  for n in 1:npts
+    x = pts[1,n]
+    y = pts[2,n]
+    if x >= xlo && x <= xhi && y >= ylo && y <= yhi
+      subpts_ix[ix] = n
+      subpts[:,ix] = pts[:,n]
+      ix += 1
+    end
+  end
+
+  # calculate faces for this chunk
+  subfcs = triangulate_pointcloud(subpts)
+
+  # translate faces to original point set and append to face list
+  for f in subfcs
+    push!(fcs, [subpts_ix[f[1]], subpts_ix[f[2]], subpts_ix[f[3]]])
+  end
+
+  fcs
+end
 
 """
 Given a set of points in 3-space, calculates a triangulation of (a subset of)
@@ -16,6 +60,7 @@ in the positive z direction, and "filled" in the negative z direction.
 pts - 3 × M matrix of points in 3-space.
 """
 function triangulate_pointcloud(pts)
+  npts = size(pts)[2]
 
   # 0. augment the point set with "boundary" points
   x0 = mean(pts[1,:])
@@ -35,13 +80,15 @@ function triangulate_pointcloud(pts)
   ρ = face_weights(pts, simps, es)
   σ = boundary_bias(simps, size(pts)[2])
 
-  print("Calculating binary labeling...")
   # 5. calculate vertex labeling
   ϕ = binary_labeling(es, ρ, σ)
-  println("done.")
 
   # 6. extract isosurface
-  isosurface(es, pts, simps, ϕ)
+  fcs = isosurface(es, pts, simps, ϕ)
+
+  # 7. just in case, remove any faces with boundary points as vertices
+  # (this shouldn't have to be done!)
+  filter(f -> maximum(f) <= npts, fcs)
 end
 
 function delaunay_edges(simps)
@@ -89,14 +136,12 @@ function face_weights(pts, simps, es)
     c = ls[3]
 
     if a^2 + b^2 >= c^2
-      # acute/right
       wt = (a*b*c)/sqrt((a+b+c)*(b+c-a)*(c+a-b)*(a+b-c))
     else
-      # obtuse
-      wt = (b^2*c)/sqrt(b^2+c^2-a^2)
+      wt = c/2
     end
 
-    ρ[k] = min(wt^2.0, 1.0e30)
+    ρ[k] = min(wt^10.0, 1.0e30)
   end
 
   ρ
