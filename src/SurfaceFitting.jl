@@ -116,9 +116,10 @@ end
 
 # The face weight is taken to be the maximum distance of any point in the
 # triangle to its nearest vertex. For acute & right triangles, this is the
-# radius of the circumscribed circle. For obtuse triangles, this the length
-# of the side of an isocelese triangle whose base is the second longest side (b)
-# and which has one side coincident with the longest side (c).
+# radius of the circumscribed circle. For obtuse triangles, we simplify
+# and take the cost to be half the length of the longest side. This is an
+# upper bound on the maximum distance to a vertex, which serves to 
+# discourage obtuse triangles.
 function face_weights(pts, simps, es)
   ne = size(es)[2]
   ρ = Vector{Float32}(ne)
