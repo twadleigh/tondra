@@ -28,7 +28,7 @@ end
 println("done.")
 
 # section the pointcloud into chunks
-dr = 100.0
+dr = 25.0
 nx = ceil(Int, (xhi-xlo)/dr)
 ny = ceil(Int, (yhi-ylo)/dr)
 dx = scale*(xhi-xlo)/nx
@@ -47,6 +47,10 @@ for k in 1:nx, l in 1:ny
   ya = yb - dy - 0.2*scale
 
   subfcs = triangulate_pointcloud_in_box(pts, xa, xb, ya, yb)
+  if length(subfcs) == 0
+    continue
+  end
+
   if length(fcs) == 0
     fcs = subfcs
   else

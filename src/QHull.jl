@@ -31,6 +31,8 @@ function delaunay_simplices(pts)
   for i in 1:nsimps
     simps[:,i] = sort(map(s -> 1 + parse(Int, s), split(readline(outs))))
   end
+  close(outs)
+  wait(p)
 
   simps
 end
