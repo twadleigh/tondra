@@ -27,9 +27,9 @@ function delaunay_simplices(pts)
 
   # read in the simplices
   nsimps = parse(Int, readline(outs))
-  simps = Vector{IntSet}(nsimps)
+  simps = Matrix{Int}(ndims+1, nsimps)
   for i in 1:nsimps
-    simps[i] = IntSet(map(s -> 1 + parse(Int, s), split(readline(outs))))
+    simps[:,i] = sort(map(s -> 1 + parse(Int, s), split(readline(outs))))
   end
 
   simps

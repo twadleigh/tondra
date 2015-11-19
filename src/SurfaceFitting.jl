@@ -7,8 +7,6 @@ using BinaryLabeling
 
 function triangulate_pointcloud_in_box(pts, xlo, xhi, ylo, yhi)
 
-  fcs = Vector{Vector{Int}}()
-
   # calculate point subset for this chunk
   npts = size(pts)[2]
   nsubpts = 0
@@ -22,7 +20,7 @@ function triangulate_pointcloud_in_box(pts, xlo, xhi, ylo, yhi)
 
   # bail if there aren't really any points in this chunk
   if nsubpts < 3
-    return fcs
+    return Matrix{Int}()
   end
 
   subpts_ix = zeros(Int, nsubpts)
@@ -39,11 +37,12 @@ function triangulate_pointcloud_in_box(pts, xlo, xhi, ylo, yhi)
   end
 
   # calculate faces for this chunk
-  subfcs = triangulate_pointcloud(subpts)
+  fcs = triangulate_pointcloud(subpts)
 
-  # translate faces to original point set and append to face list
-  for f in subfcs
-    push!(fcs, [subpts_ix[f[1]], subpts_ix[f[2]], subpts_ix[f[3]]])
+  # translate faces to original point set indices
+  (fcsz, nfcs) = size(fcs)
+  for k in 1:fcsz, l in 1:nfcs
+    fcs[k,l] = subpts_ix[fcs[k,l]]
   end
 
   fcs
@@ -84,20 +83,17 @@ function triangulate_pointcloud(pts)
   ϕ = binary_labeling(es, ρ, σ)
 
   # 6. extract isosurface
-  fcs = isosurface(es, pts, simps, ϕ)
-
-  # 7. just in case, remove any faces with boundary points as vertices
-  # (this shouldn't have to be done!)
-  filter(f -> maximum(f) <= npts, fcs)
+  isosurface(es, pts, simps, ϕ)
 end
 
 function delaunay_edges(simps)
-  nsimps = length(simps)
+  (ndims,nsimps) = size(simps)
+  @assert ndims == 4
 
   half_edges = Dict{IntSet, Int32}()
   edges = Vector{Int32}()
   for k in 1:nsimps
-    simp = simps[k]
+    simp = IntSet(simps[:,k])
     for v in simp
       face = delete!(copy(simp), v)
       if haskey(half_edges, face)
@@ -125,7 +121,7 @@ function face_weights(pts, simps, es)
   ρ = Vector{Float32}(ne)
 
   for k in 1:ne
-    face = collect(simps[es[1,k]] ∩ simps[es[2,k]])
+    face = collect(IntSet(simps[:,es[1,k]]) ∩ IntSet(simps[:,es[2,k]]))
     v1 = pts[:, face[1]]
     v2 = pts[:, face[2]]
     v3 = pts[:, face[3]]
@@ -152,13 +148,13 @@ end
 # it to be labeled with +1: filled. Similarly, if it touches the +z point,
 # the label bias is Inf, forcing it to be labeled with -1: empty.
 function boundary_bias(simps, npts)
-  nv = length(simps)
+  nv = size(simps)[2]
   σ = zeros(Float32, nv)
   lo = npts - 1
   hi = npts
 
   for k in 1:nv
-    v = simps[k]
+    v = IntSet(simps[:,k])
     σ[k] = lo ∈ v ? -Inf : (hi ∈ v ? Inf : 0)
   end
 
@@ -168,30 +164,34 @@ end
 function isosurface(es, pts, simps, ϕ)
   ne = size(es)[2]
 
-  surf = Set{Vector{Int}}()
+  nf = 0
+  surf = Vector{Int}()
   for k in 1:ne
     v1 = es[1,k]
     v2 = es[2,k]
     if ϕ[v1] * ϕ[v2] < 0
-      face_set = simps[v1] ∩ simps[v2]
-      outside_simplex = ϕ[v1] < 0 ? simps[v1] : simps[v2]
+      s1 = IntSet(simps[:,v1])
+      s2 = IntSet(simps[:,v2])
+      face_set = s1 ∩ s2
+      outside_simplex = ϕ[v1] < 0 ? s1 : s2
       outside_vertex = collect(setdiff(outside_simplex, face_set))[1]
       face = collect(face_set)
 
       # check the face orientation
       origin = pts[:, face[1]]
-      v1 = pts[:, face[2]] - origin
-      v2 = pts[:, face[3]] - origin
-      v3 = pts[:, outside_vertex] - origin
-      if (v3' * (v1 × v2))[1] < 0
+      vec1 = pts[:, face[2]] - origin
+      vec2 = pts[:, face[3]] - origin
+      vec3 = pts[:, outside_vertex] - origin
+      if (vec3' * (vec1 × vec2))[1] < 0
         reverse!(face)
       end
 
-      push!(surf, face)
+      append!(surf, face)
+      nf += 1
     end
   end
 
-  surf
+  reshape(surf, (3, nf))
 end
 
 end # module SurfaceFitting

@@ -28,7 +28,7 @@ end
 println("done.")
 
 # section the pointcloud into chunks
-dr = 8.0
+dr = 100.0
 nx = ceil(Int, (xhi-xlo)/dr)
 ny = ceil(Int, (yhi-ylo)/dr)
 dx = scale*(xhi-xlo)/nx
@@ -36,7 +36,7 @@ dy = scale*(yhi-ylo)/ny
 x0 = scale*(xlo - ctr[1])
 y0 = scale*(ylo - ctr[2])
 
-fcs = Vector{Vector{Int}}()
+fcs = Matrix{Int}()
 for k in 1:nx, l in 1:ny
   print(@sprintf("Working on chunk (%u,%u) of (%u,%u)...", k, l, nx, ny))
 
@@ -47,7 +47,11 @@ for k in 1:nx, l in 1:ny
   ya = yb - dy - 0.2*scale
 
   subfcs = triangulate_pointcloud_in_box(pts, xa, xb, ya, yb)
-  append!(fcs, subfcs)
+  if length(fcs) == 0
+    fcs = subfcs
+  else
+    fcs = hcat(fcs, subfcs)
+  end
 
   println("done.")
 end
