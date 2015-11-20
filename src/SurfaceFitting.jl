@@ -114,7 +114,7 @@ end
 # triangle to its nearest vertex. For acute & right triangles, this is the
 # radius of the circumscribed circle. For obtuse triangles, we simplify
 # and take the cost to be half the length of the longest side. This is an
-# upper bound on the maximum distance to a vertex, which serves to 
+# upper bound on the maximum distance to a vertex, which serves to
 # discourage obtuse triangles.
 function face_weights(pts, simps, es)
   ne = size(es)[2]
@@ -163,6 +163,7 @@ end
 
 function isosurface(es, pts, simps, ϕ)
   ne = size(es)[2]
+  max_pt_ix = size(pts)[2] - 2
 
   nf = 0
   surf = Vector{Int}()
@@ -176,6 +177,12 @@ function isosurface(es, pts, simps, ϕ)
       outside_simplex = ϕ[v1] < 0 ? s1 : s2
       outside_vertex = collect(setdiff(outside_simplex, face_set))[1]
       face = collect(face_set)
+
+      # bail if, for some reason, the face touches a boundary point
+      # this shouldn't happen, but, very occassionally does!
+      if maximum(face) > max_pt_ix
+        continue
+      end
 
       # check the face orientation
       origin = pts[:, face[1]]
